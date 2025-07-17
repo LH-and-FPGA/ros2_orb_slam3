@@ -50,6 +50,7 @@ MonocularMode::MonocularMode() :Node("mono_node_cpp")
 
     rclcpp::Parameter param4 = this->get_parameter("headless");
     // headlessMode = param4.as_bool();
+    headlessMode = true;
 
     // rclcpp::Parameter param4 = this->get_parameter("settings_file_name_arg");
     
@@ -82,6 +83,17 @@ MonocularMode::MonocularMode() :Node("mono_node_cpp")
 
     //* publisher to send out acknowledgement
     configAck_publisher_ = this->create_publisher<std_msgs::msg::String>(pubconfigackName, 10);
+
+    //* Map visualization publishers
+    mapPoints_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/orb_slam3/map_points", 10);
+    cameraPose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/orb_slam3/camera_pose", 10);
+    keyframePath_publisher_ = this->create_publisher<nav_msgs::msg::Path>("/orb_slam3/keyframe_trajectory", 10);
+    trackingState_publisher_ = this->create_publisher<std_msgs::msg::Int32>("/orb_slam3/tracking_state", 10);
+    tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
+
+    //* Initialize path message
+    keyframe_path_.header.frame_id = "map";
+    last_publish_time_ = this->get_clock()->now();
 
     //* subscrbite to the image messages coming from the Python driver node
     subImgMsg_subscription_= this->create_subscription<sensor_msgs::msg::Image>(subImgMsgName, 1, std::bind(&MonocularMode::Img_callback, this, _1));
@@ -199,9 +211,186 @@ void MonocularMode::Img_callback(const sensor_msgs::msg::Image& msg)
     //! Pose with respect to the camera coordinate frame not the world coordinate frame
     Sophus::SE3f Tcw = pAgent->TrackMonocular(cv_ptr->image, timeStep); 
     
+    //* Publish map visualization data
+    if (pAgent != nullptr) {
+        publishTrackingState();
+        publishCameraPose(Tcw);
+        publishTF(Tcw);
+        
+        // Publish map data at reduced frequency (e.g., every 1 second)
+        auto current_time = this->get_clock()->now();
+        if ((current_time - last_publish_time_).seconds() >= 1.0) {
+            publishMapPoints();
+            publishKeyframePath();
+            last_publish_time_ = current_time;
+        }
+    }
+    
     //* An example of what can be done after the pose w.r.t camera coordinate frame is computed by ORB SLAM3
     //Sophus::SE3f Twc = Tcw.inverse(); //* Pose with respect to global image coordinate, reserved for future use
 
+}
+
+//* Map visualization helper functions implementation
+
+void MonocularMode::publishMapPoints() {
+    if (pAgent == nullptr) return;
+    
+    std::vector<ORB_SLAM3::MapPoint*> mapPoints = pAgent->GetAllMapPoints();
+    if (mapPoints.empty()) return;
+    
+    sensor_msgs::msg::PointCloud2 cloud_msg = createPointCloud2(mapPoints);
+    cloud_msg.header.stamp = this->get_clock()->now();
+    cloud_msg.header.frame_id = "map";
+    
+    mapPoints_publisher_->publish(cloud_msg);
+}
+
+void MonocularMode::publishCameraPose(const Sophus::SE3f& Tcw) {
+    if (pAgent == nullptr) return;
+    
+    // Convert camera pose to world coordinate frame
+    Sophus::SE3f Twc = Tcw.inverse();
+    
+    geometry_msgs::msg::PoseStamped pose_msg;
+    pose_msg.header.stamp = this->get_clock()->now();
+    pose_msg.header.frame_id = "map";
+    
+    // Extract translation
+    Eigen::Vector3f translation = Twc.translation();
+    pose_msg.pose.position.x = translation.x();
+    pose_msg.pose.position.y = translation.y();
+    pose_msg.pose.position.z = translation.z();
+    
+    // Extract rotation (quaternion)
+    Eigen::Quaternionf quaternion = Twc.unit_quaternion();
+    pose_msg.pose.orientation.x = quaternion.x();
+    pose_msg.pose.orientation.y = quaternion.y();
+    pose_msg.pose.orientation.z = quaternion.z();
+    pose_msg.pose.orientation.w = quaternion.w();
+    
+    cameraPose_publisher_->publish(pose_msg);
+}
+
+void MonocularMode::publishKeyframePath() {
+    if (pAgent == nullptr) return;
+    
+    std::vector<Sophus::SE3f> keyframe_poses = pAgent->GetAllKeyframePoses();
+    if (keyframe_poses.empty()) return;
+    
+    keyframe_path_.poses.clear();
+    keyframe_path_.header.stamp = this->get_clock()->now();
+    
+    for (const auto& pose : keyframe_poses) {
+        geometry_msgs::msg::PoseStamped pose_stamped;
+        pose_stamped.header.frame_id = "map";
+        pose_stamped.header.stamp = this->get_clock()->now();
+        
+        // Extract translation
+        Eigen::Vector3f translation = pose.translation();
+        pose_stamped.pose.position.x = translation.x();
+        pose_stamped.pose.position.y = translation.y();
+        pose_stamped.pose.position.z = translation.z();
+        
+        // Extract rotation (quaternion)
+        Eigen::Quaternionf quaternion = pose.unit_quaternion();
+        pose_stamped.pose.orientation.x = quaternion.x();
+        pose_stamped.pose.orientation.y = quaternion.y();
+        pose_stamped.pose.orientation.z = quaternion.z();
+        pose_stamped.pose.orientation.w = quaternion.w();
+        
+        keyframe_path_.poses.push_back(pose_stamped);
+    }
+    
+    keyframePath_publisher_->publish(keyframe_path_);
+}
+
+void MonocularMode::publishTrackingState() {
+    if (pAgent == nullptr) return;
+    
+    std_msgs::msg::Int32 state_msg;
+    state_msg.data = pAgent->GetTrackingState();
+    trackingState_publisher_->publish(state_msg);
+}
+
+void MonocularMode::publishTF(const Sophus::SE3f& Tcw) {
+    if (pAgent == nullptr) return;
+    
+    // Convert camera pose to world coordinate frame
+    Sophus::SE3f Twc = Tcw.inverse();
+    
+    geometry_msgs::msg::TransformStamped transform_stamped;
+    transform_stamped.header.stamp = this->get_clock()->now();
+    transform_stamped.header.frame_id = "map";
+    transform_stamped.child_frame_id = "camera_link";
+    
+    // Extract translation
+    Eigen::Vector3f translation = Twc.translation();
+    transform_stamped.transform.translation.x = translation.x();
+    transform_stamped.transform.translation.y = translation.y();
+    transform_stamped.transform.translation.z = translation.z();
+    
+    // Extract rotation (quaternion)
+    Eigen::Quaternionf quaternion = Twc.unit_quaternion();
+    transform_stamped.transform.rotation.x = quaternion.x();
+    transform_stamped.transform.rotation.y = quaternion.y();
+    transform_stamped.transform.rotation.z = quaternion.z();
+    transform_stamped.transform.rotation.w = quaternion.w();
+    
+    tf_broadcaster_->sendTransform(transform_stamped);
+}
+
+sensor_msgs::msg::PointCloud2 MonocularMode::createPointCloud2(const std::vector<ORB_SLAM3::MapPoint*>& mapPoints) {
+    sensor_msgs::msg::PointCloud2 cloud_msg;
+    
+    // Set up the PointCloud2 message
+    cloud_msg.height = 1;
+    cloud_msg.width = 0;
+    cloud_msg.is_dense = true;
+    cloud_msg.is_bigendian = false;
+    
+    // Define point cloud fields
+    sensor_msgs::msg::PointField field_x, field_y, field_z;
+    field_x.name = "x";
+    field_x.offset = 0;
+    field_x.datatype = sensor_msgs::msg::PointField::FLOAT32;
+    field_x.count = 1;
+    
+    field_y.name = "y";
+    field_y.offset = 4;
+    field_y.datatype = sensor_msgs::msg::PointField::FLOAT32;
+    field_y.count = 1;
+    
+    field_z.name = "z";
+    field_z.offset = 8;
+    field_z.datatype = sensor_msgs::msg::PointField::FLOAT32;
+    field_z.count = 1;
+    
+    cloud_msg.fields = {field_x, field_y, field_z};
+    cloud_msg.point_step = 12; // 3 floats * 4 bytes each
+    
+    // Count valid map points
+    std::vector<Eigen::Vector3f> valid_points;
+    for (ORB_SLAM3::MapPoint* pMP : mapPoints) {
+        if (pMP && !pMP->isBad()) {
+            Eigen::Vector3f pos = pMP->GetWorldPos();
+            valid_points.push_back(pos);
+        }
+    }
+    
+    cloud_msg.width = valid_points.size();
+    cloud_msg.row_step = cloud_msg.point_step * cloud_msg.width;
+    cloud_msg.data.resize(cloud_msg.row_step);
+    
+    // Fill point data
+    float* data_ptr = reinterpret_cast<float*>(cloud_msg.data.data());
+    for (size_t i = 0; i < valid_points.size(); ++i) {
+        data_ptr[i * 3 + 0] = valid_points[i].x();
+        data_ptr[i * 3 + 1] = valid_points[i].y();
+        data_ptr[i * 3 + 2] = valid_points[i].z();
+    }
+    
+    return cloud_msg;
 }
 
 
