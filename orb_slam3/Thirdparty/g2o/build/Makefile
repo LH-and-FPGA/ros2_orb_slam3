@@ -57,10 +57,17 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
+<<<<<<< Updated upstream
 CMAKE_SOURCE_DIR = /home/az-ubuntu-2204/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o
 
 # The top-level build directory on which CMake was run.
 CMAKE_BINARY_DIR = /home/az-ubuntu-2204/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/build
+=======
+CMAKE_SOURCE_DIR = /home/Han/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o
+
+# The top-level build directory on which CMake was run.
+CMAKE_BINARY_DIR = /home/Han/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/build
+>>>>>>> Stashed changes
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -87,9 +94,15 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
+<<<<<<< Updated upstream
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/az-ubuntu-2204/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/build/CMakeFiles /home/az-ubuntu-2204/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/build//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/az-ubuntu-2204/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/build/CMakeFiles 0
+=======
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/Han/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/build/CMakeFiles /home/Han/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/build//CMakeFiles/progress.marks
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/Han/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/build/CMakeFiles 0
+>>>>>>> Stashed changes
 .PHONY : all
 
 # The main clean target

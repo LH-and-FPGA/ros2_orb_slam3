@@ -5,13 +5,21 @@
 # compile CXX with /usr/bin/c++
 C_DEFINES = -DUNIX -Dg2o_EXPORTS
 
+<<<<<<< Updated upstream
 C_INCLUDES = -I/home/az-ubuntu-2204/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/g2o/core -I/home/az-ubuntu-2204/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/g2o/types -I/home/az-ubuntu-2204/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/g2o/stuff
+=======
+C_INCLUDES = -I/usr/include/eigen3 -I/home/Han/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/g2o/core -I/home/Han/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/g2o/types -I/home/Han/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/g2o/stuff
+>>>>>>> Stashed changes
 
 C_FLAGS =   -Wall -W -fPIC
 
 CXX_DEFINES = -DUNIX -Dg2o_EXPORTS
 
+<<<<<<< Updated upstream
 CXX_INCLUDES = -I/home/az-ubuntu-2204/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/g2o/core -I/home/az-ubuntu-2204/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/g2o/types -I/home/az-ubuntu-2204/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/g2o/stuff
+=======
+CXX_INCLUDES = -I/usr/include/eigen3 -I/home/Han/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/g2o/core -I/home/Han/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/g2o/types -I/home/Han/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/g2o/stuff
+>>>>>>> Stashed changes
 
 CXX_FLAGS =   -Wall -W -fPIC
 

@@ -1,4 +1,8 @@
+<<<<<<< Updated upstream
 # Install script for directory: /home/az-ubuntu-2204/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o
+=======
+# Install script for directory: /home/Han/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o
+>>>>>>> Stashed changes
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -50,5 +54,9 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
+<<<<<<< Updated upstream
 file(WRITE "/home/az-ubuntu-2204/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/build/${CMAKE_INSTALL_MANIFEST}"
+=======
+file(WRITE "/home/Han/ros2_ws/src/ros2_orb_slam3/orb_slam3/Thirdparty/g2o/build/${CMAKE_INSTALL_MANIFEST}"
+>>>>>>> Stashed changes
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
