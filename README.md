@@ -184,7 +184,10 @@ colcon build --symlink-install
 
 ## 3. Monocular Example:
 
-Run the builtin example to verify the package is working correctly
+Run the builtin example to verify the package is working correctly. The package now supports two input modes and headless operation:
+
+### 3.1 Default Mode (Python Driver + Display)
+
 In one terminal [cpp node]
 
 ```bash
@@ -201,7 +204,114 @@ source ./install/setup.bash
 ros2 run ros2_orb_slam3 mono_driver_node.py --ros-args -p settings_name:=EuRoC -p image_seq:=sample_euroc_MH05
 ```
 
+### 3.2 Headless Mode (No Pangolin Display)
+
+For headless environments or remote deployment where X11 display is not available:
+
+```bash
+cd ~/ros2_ws/
+source ./install/setup.bash
+ros2 run ros2_orb_slam3 mono_node_cpp --ros-args -p node_name_arg:=mono_slam_cpp -p headless:=true
+```
+
+### 3.3 Direct Camera Input Mode
+
+To directly subscribe to camera topics without using the Python driver:
+
+```bash
+cd ~/ros2_ws/
+source ./install/setup.bash
+ros2 run ros2_orb_slam3 mono_node_cpp --ros-args -p node_name_arg:=mono_slam_cpp -p use_camera:=true -p camera_topic:=camera/mono
+```
+
+You can combine both headless and camera modes:
+
+```bash
+ros2 run ros2_orb_slam3 mono_node_cpp --ros-args -p node_name_arg:=mono_slam_cpp -p headless:=true -p use_camera:=true -p camera_topic:=camera/mono
+```
+
 Both nodes would perform a handshake and the VSLAM framework would then work as shown in the following video clip
+
+## 4. Map Visualization with Foxglove
+
+The package now publishes comprehensive map data that can be visualized in real-time using Foxglove Studio:
+
+### Published Topics:
+
+- `/map_points` (sensor_msgs/PointCloud2): All 3D map points
+- `/camera_pose` (geometry_msgs/PoseStamped): Current camera pose
+- `/keyframe_path` (nav_msgs/Path): Trajectory of all keyframes
+- `/tf` (tf2_msgs/TFMessage): Transform tree for camera pose
+
+### Foxglove Setup:
+
+1. Install and open [Foxglove Studio](https://foxglove.dev/)
+2. Connect to your ROS2 environment
+3. Add panels for:
+   - **3D View**: Visualize map points, camera pose, and trajectory
+   - **Plot**: Monitor pose data over time
+   - **Transform Tree**: View coordinate frame relationships
+
+### Visualization Features:
+
+- **Real-time Updates**: Map data updates continuously during SLAM operation
+- **3D Map Points**: Visualize the sparse 3D reconstruction
+- **Camera Trajectory**: See the estimated camera path through the environment
+- **Coordinate Frames**: Transform relationships between map, camera, and base frames
+
+Example command for visualization-enabled SLAM:
+
+```bash
+# Terminal 1: Start SLAM node with visualization
+ros2 run ros2_orb_slam3 mono_node_cpp --ros-args -p node_name_arg:=mono_slam_cpp
+
+# Terminal 2: Start camera input (choose one option)
+# Option A: Python driver
+ros2 run ros2_orb_slam3 mono_driver_node.py --ros-args -p settings_name:=EuRoC -p image_seq:=sample_euroc_MH05
+
+# Option B: Direct camera input
+ros2 run ros2_orb_slam3 mono_node_cpp --ros-args -p node_name_arg:=mono_slam_cpp -p use_camera:=true -p camera_topic:=camera/mono
+
+# Terminal 3: Monitor topics
+ros2 topic list
+ros2 topic echo /camera_pose
+```
+
+## 5. Configuration Parameters
+
+The mono_node_cpp supports the following parameters:
+
+### Core Parameters:
+- `node_name_arg` (string, default: "mono_slam_cpp"): Node name identifier
+- `headless` (bool, default: false): Disable Pangolin GUI for headless environments
+- `use_camera` (bool, default: false): Enable direct camera topic subscription
+
+### Camera Input Parameters:
+- `camera_topic` (string, default: "camera/mono"): Topic name for camera input
+- When `use_camera:=true`, the node subscribes directly to sensor_msgs/Image
+
+### Visualization Parameters:
+- Map visualization is always enabled and publishes to:
+  - `/map_points`: 3D point cloud of map features
+  - `/camera_pose`: Current camera pose estimation
+  - `/keyframe_path`: Complete trajectory path
+  - `/tf`: Transform frames (map→camera→base_link)
+
+### Usage Examples:
+
+```bash
+# Headless mode only
+ros2 run ros2_orb_slam3 mono_node_cpp --ros-args -p headless:=true
+
+# Camera input only
+ros2 run ros2_orb_slam3 mono_node_cpp --ros-args -p use_camera:=true
+
+# Combined headless + camera input
+ros2 run ros2_orb_slam3 mono_node_cpp --ros-args -p headless:=true -p use_camera:=true -p camera_topic:=my_camera/image
+
+# Custom node name
+ros2 run ros2_orb_slam3 mono_node_cpp --ros-args -p node_name_arg:=my_slam_node -p headless:=true
+```
 
 
 https://github.com/Mechazo11/ros2_orb_slam3/assets/44814419/af9eaa79-da4b-4405-a4d7-e09242ab9660

@@ -90,12 +90,18 @@ class MonocularMode : public rclcpp::Node
         std::string pubconfigackName = ""; // Publisher topic name
         std::string subImgMsgName = ""; // Topic to subscribe to receive RGB images from a python node
         std::string subTimestepMsgName = ""; // Topic to subscribe to receive the timestep related to the 
+        std::string cameraImgTopicName = ""; // Topic to subscribe to camera images
+        
+        //* Input mode control
+        bool useCameraInput = false; // Use camera input instead of python driver
+        bool useTimestamp = true; // Use ROS timestamp or generate timestamp 
 
         //* Definitions of publisher and subscribers
         rclcpp::Subscription<std_msgs::msg::String>::SharedPtr expConfig_subscription_;
         rclcpp::Publisher<std_msgs::msg::String>::SharedPtr configAck_publisher_;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subImgMsg_subscription_;
         rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr subTimestepMsg_subscription_;
+        rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr cameraImg_subscription_;
 
         //* Map visualization publishers
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr mapPoints_publisher_;
@@ -119,6 +125,7 @@ class MonocularMode : public rclcpp::Node
         void experimentSetting_callback(const std_msgs::msg::String& msg); // Callback to process settings sent over by Python node
         void Timestep_callback(const std_msgs::msg::Float64& time_msg); // Callback to process the timestep for this image
         void Img_callback(const sensor_msgs::msg::Image& msg); // Callback to process RGB image and semantic matrix sent by Python node
+        void cameraImg_callback(const sensor_msgs::msg::Image& msg); // Callback to process camera images
         
         //* Helper functions
         // ORB_SLAM3::eigenMatXf convertToEigenMat(const std_msgs::msg::Float32MultiArray& msg); // Helper method, converts semantic matrix eigenMatXf, a Eigen 4x4 float matrix

@@ -30,13 +30,17 @@ MonocularMode::MonocularMode() :Node("mono_node_cpp")
     this->declare_parameter("node_name_arg", "not_given"); // Name of this agent 
     this->declare_parameter("voc_file_arg", "file_not_set"); // Needs to be overriden with appropriate name  
     this->declare_parameter("settings_file_path_arg", "file_path_not_set"); // path to settings file  
-    this->declare_parameter("headless", false); // Enable headless mode (no GUI)  
+    this->declare_parameter("headless", false); // Enable headless mode (no GUI)
+    this->declare_parameter("use_camera", false); // Use camera input instead of python driver
+    this->declare_parameter("camera_topic", "camera/mono"); // Camera image topic name  
     
     //* Watchdog, populate default values
     nodeName = "not_set";
     vocFilePath = "file_not_set";
     settingsFilePath = "file_not_set";
     headlessMode = false;
+    useCameraInput = false;
+    cameraImgTopicName = "camera/mono";
 
     //* Populate parameter values
     rclcpp::Parameter param1 = this->get_parameter("node_name_arg");
@@ -49,8 +53,13 @@ MonocularMode::MonocularMode() :Node("mono_node_cpp")
     settingsFilePath = param3.as_string();
 
     rclcpp::Parameter param4 = this->get_parameter("headless");
-    // headlessMode = param4.as_bool();
-    headlessMode = true;
+    headlessMode = param4.as_bool();
+
+    rclcpp::Parameter param5 = this->get_parameter("use_camera");
+    useCameraInput = param5.as_bool();
+
+    rclcpp::Parameter param6 = this->get_parameter("camera_topic");
+    cameraImgTopicName = param6.as_string();
 
     // rclcpp::Parameter param4 = this->get_parameter("settings_file_name_arg");
     
@@ -71,6 +80,8 @@ MonocularMode::MonocularMode() :Node("mono_node_cpp")
     RCLCPP_INFO(this->get_logger(), "nodeName %s", nodeName.c_str());
     RCLCPP_INFO(this->get_logger(), "voc_file %s", vocFilePath.c_str());
     RCLCPP_INFO(this->get_logger(), "headless mode %s", headlessMode ? "enabled" : "disabled");
+    RCLCPP_INFO(this->get_logger(), "use camera input %s", useCameraInput ? "enabled" : "disabled");
+    RCLCPP_INFO(this->get_logger(), "camera topic %s", cameraImgTopicName.c_str());
     // RCLCPP_INFO(this->get_logger(), "settings_file_path %s", settingsFilePath.c_str());
     
     subexperimentconfigName = "/mono_py_driver/experiment_settings"; // topic that sends out some configuration parameters to the cpp ndoe
@@ -95,14 +106,29 @@ MonocularMode::MonocularMode() :Node("mono_node_cpp")
     keyframe_path_.header.frame_id = "map";
     last_publish_time_ = this->get_clock()->now();
 
-    //* subscrbite to the image messages coming from the Python driver node
-    subImgMsg_subscription_= this->create_subscription<sensor_msgs::msg::Image>(subImgMsgName, 1, std::bind(&MonocularMode::Img_callback, this, _1));
-
-    //* subscribe to receive the timestep
-    subTimestepMsg_subscription_= this->create_subscription<std_msgs::msg::Float64>(subTimestepMsgName, 1, std::bind(&MonocularMode::Timestep_callback, this, _1));
+    //* Setup input subscriptions based on mode
+    if (useCameraInput) {
+        // Camera mode: subscribe to camera topic directly
+        cameraImg_subscription_ = this->create_subscription<sensor_msgs::msg::Image>(
+            cameraImgTopicName, 1, std::bind(&MonocularMode::cameraImg_callback, this, _1));
+        RCLCPP_INFO(this->get_logger(), "Camera mode: subscribing to %s", cameraImgTopicName.c_str());
+        
+        // Initialize SLAM with default configuration for camera mode
+        std::string defaultConfig = "EuRoC"; // Default configuration
+        initializeVSLAM(defaultConfig);
+    } else {
+        // Python driver mode: subscribe to python driver topics
+        expConfig_subscription_ = this->create_subscription<std_msgs::msg::String>(
+            subexperimentconfigName, 1, std::bind(&MonocularMode::experimentSetting_callback, this, _1));
+        subImgMsg_subscription_ = this->create_subscription<sensor_msgs::msg::Image>(
+            subImgMsgName, 1, std::bind(&MonocularMode::Img_callback, this, _1));
+        subTimestepMsg_subscription_ = this->create_subscription<std_msgs::msg::Float64>(
+            subTimestepMsgName, 1, std::bind(&MonocularMode::Timestep_callback, this, _1));
+        RCLCPP_INFO(this->get_logger(), "Python driver mode: waiting for handshake...");
+    }
 
     
-    RCLCPP_INFO(this->get_logger(), "Waiting to finish handshake ......");
+    RCLCPP_INFO(this->get_logger(), "MonocularMode node initialization completed");
     
 }
 
@@ -180,6 +206,48 @@ void MonocularMode::initializeVSLAM(std::string& configString){
 void MonocularMode::Timestep_callback(const std_msgs::msg::Float64& time_msg){
     // timeStep = 0; // Initialize
     timeStep = time_msg.data;
+}
+
+//* Callback to process camera images directly
+void MonocularMode::cameraImg_callback(const sensor_msgs::msg::Image& msg)
+{
+    if (pAgent == nullptr) {
+        RCLCPP_WARN(this->get_logger(), "SLAM system not initialized yet");
+        return;
+    }
+
+    // Initialize
+    cv_bridge::CvImagePtr cv_ptr; 
+    
+    //* Convert ROS image to openCV image
+    try
+    {
+        cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::MONO8);
+    }
+    catch (cv_bridge::Exception& e)
+    {
+        RCLCPP_ERROR(this->get_logger(), "Error reading camera image: %s", e.what());
+        return;
+    }
+    
+    //* Generate timestamp from ROS message header
+    double timestamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9;
+    
+    //* Perform all ORB-SLAM3 operations in Monocular mode
+    Sophus::SE3f Tcw = pAgent->TrackMonocular(cv_ptr->image, timestamp); 
+    
+    //* Publish map visualization data
+    publishTrackingState();
+    publishCameraPose(Tcw);
+    publishTF(Tcw);
+    
+    // Publish map data at reduced frequency (e.g., every 1 second)
+    auto current_time = this->get_clock()->now();
+    if ((current_time - last_publish_time_).seconds() >= 1.0) {
+        publishMapPoints();
+        publishKeyframePath();
+        last_publish_time_ = current_time;
+    }
 }
 
 //* Callback to process image message and run SLAM node
