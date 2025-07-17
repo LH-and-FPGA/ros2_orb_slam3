@@ -94,6 +94,7 @@ class MonocularMode : public rclcpp::Node
         ORB_SLAM3::System::eSensor sensorType;
         bool enablePangolinWindow = false; // Shows Pangolin window output
         bool enableOpenCVWindow = false; // Shows OpenCV window output
+        bool headlessMode = true; // Enable headless mode (no GUI)
 
         //* ROS callbacks
         void experimentSetting_callback(const std_msgs::msg::String& msg); // Callback to process settings sent over by Python node

@@ -30,11 +30,13 @@ MonocularMode::MonocularMode() :Node("mono_node_cpp")
     this->declare_parameter("node_name_arg", "not_given"); // Name of this agent 
     this->declare_parameter("voc_file_arg", "file_not_set"); // Needs to be overriden with appropriate name  
     this->declare_parameter("settings_file_path_arg", "file_path_not_set"); // path to settings file  
+    this->declare_parameter("headless", false); // Enable headless mode (no GUI)  
     
     //* Watchdog, populate default values
     nodeName = "not_set";
     vocFilePath = "file_not_set";
     settingsFilePath = "file_not_set";
+    headlessMode = false;
 
     //* Populate parameter values
     rclcpp::Parameter param1 = this->get_parameter("node_name_arg");
@@ -45,6 +47,9 @@ MonocularMode::MonocularMode() :Node("mono_node_cpp")
 
     rclcpp::Parameter param3 = this->get_parameter("settings_file_path_arg");
     settingsFilePath = param3.as_string();
+
+    rclcpp::Parameter param4 = this->get_parameter("headless");
+    // headlessMode = param4.as_bool();
 
     // rclcpp::Parameter param4 = this->get_parameter("settings_file_name_arg");
     
@@ -64,6 +69,7 @@ MonocularMode::MonocularMode() :Node("mono_node_cpp")
     //* DEBUG print
     RCLCPP_INFO(this->get_logger(), "nodeName %s", nodeName.c_str());
     RCLCPP_INFO(this->get_logger(), "voc_file %s", vocFilePath.c_str());
+    RCLCPP_INFO(this->get_logger(), "headless mode %s", headlessMode ? "enabled" : "disabled");
     // RCLCPP_INFO(this->get_logger(), "settings_file_path %s", settingsFilePath.c_str());
     
     subexperimentconfigName = "/mono_py_driver/experiment_settings"; // topic that sends out some configuration parameters to the cpp ndoe
@@ -142,8 +148,17 @@ void MonocularMode::initializeVSLAM(std::string& configString){
     // NOTE if you plan on passing other configuration parameters to ORB SLAM3 Systems class, do it here
     // NOTE you may also use a .yaml file here to set these values
     sensorType = ORB_SLAM3::System::MONOCULAR; 
-    enablePangolinWindow = true; // Shows Pangolin window output
-    enableOpenCVWindow = true; // Shows OpenCV window output
+    
+    // Set GUI options based on headless mode
+    if (headlessMode) {
+        enablePangolinWindow = false; // Disable Pangolin window in headless mode
+        enableOpenCVWindow = false; // Disable OpenCV window in headless mode
+        RCLCPP_INFO(this->get_logger(), "Running in headless mode - GUI disabled");
+    } else {
+        enablePangolinWindow = true; // Shows Pangolin window output
+        enableOpenCVWindow = true; // Shows OpenCV window output
+        RCLCPP_INFO(this->get_logger(), "Running with GUI enabled");
+    }
     
     pAgent = new ORB_SLAM3::System(vocFilePath, settingsFilePath, sensorType, enablePangolinWindow);
     std::cout << "MonocularMode node initialized" << std::endl; // TODO needs a better message
