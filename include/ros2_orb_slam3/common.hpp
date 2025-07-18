@@ -26,6 +26,14 @@
 #include <std_msgs/msg/string.hpp>
 #include <std_msgs/msg/bool.hpp>
 #include "sensor_msgs/msg/image.hpp"
+#include "sensor_msgs/msg/point_cloud2.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
+#include "geometry_msgs/msg/transform_stamped.hpp"
+#include "nav_msgs/msg/path.hpp"
+#include "tf2_ros/transform_broadcaster.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
+#include "sensor_msgs/point_cloud2_iterator.hpp"
+#include <std_msgs/msg/int32.hpp>
 using std::placeholders::_1; //* TODO why this is suggested in official tutorial
 
 // Include Eigen
@@ -42,6 +50,7 @@ using std::placeholders::_1; //* TODO why this is suggested in official tutorial
 #include <opencv2/highgui/highgui.hpp> // GUI tools
 #include <opencv2/core/eigen.hpp>
 #include <image_transport/image_transport.h>
+#include <sensor_msgs/image_encodings.hpp>
 
 //* ORB SLAM 3 includes
 #include "System.h" //* Also imports the ORB_SLAM3 namespace
@@ -80,27 +89,54 @@ class MonocularMode : public rclcpp::Node
         std::string pubconfigackName = ""; // Publisher topic name
         std::string subImgMsgName = ""; // Topic to subscribe to receive RGB images from a python node
         std::string subTimestepMsgName = ""; // Topic to subscribe to receive the timestep related to the 
+        std::string cameraImgTopicName = ""; // Topic to subscribe to camera images 
+
+        //* Input mode control
+        bool useCameraInput = false; // Use camera input instead of python driver
+        bool useTimestamp = true; // Use ROS timestamp or generate timestamp 
 
         //* Definitions of publisher and subscribers
         rclcpp::Subscription<std_msgs::msg::String>::SharedPtr expConfig_subscription_;
         rclcpp::Publisher<std_msgs::msg::String>::SharedPtr configAck_publisher_;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subImgMsg_subscription_;
         rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr subTimestepMsg_subscription_;
+        rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr cameraImg_subscription_;
+
+        //* Map visualization publishers
+        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr mapPoints_publisher_;
+        rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr cameraPose_publisher_;
+        rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr keyframePath_publisher_;
+        rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr trackingState_publisher_;
+        std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+
+        //* Map visualization variables
+        nav_msgs::msg::Path keyframe_path_;
+        rclcpp::Time last_publish_time_;
 
         //* ORB_SLAM3 related variables
         ORB_SLAM3::System* pAgent; // pointer to a ORB SLAM3 object
         ORB_SLAM3::System::eSensor sensorType;
         bool enablePangolinWindow = false; // Shows Pangolin window output
         bool enableOpenCVWindow = false; // Shows OpenCV window output
+        bool headlessMode = true; // Enable headless mode (no GUI)
 
         //* ROS callbacks
         void experimentSetting_callback(const std_msgs::msg::String& msg); // Callback to process settings sent over by Python node
         void Timestep_callback(const std_msgs::msg::Float64& time_msg); // Callback to process the timestep for this image
         void Img_callback(const sensor_msgs::msg::Image& msg); // Callback to process RGB image and semantic matrix sent by Python node
+        void cameraImg_callback(const sensor_msgs::msg::Image& msg); // Callback to process camera images
         
         //* Helper functions
         // ORB_SLAM3::eigenMatXf convertToEigenMat(const std_msgs::msg::Float32MultiArray& msg); // Helper method, converts semantic matrix eigenMatXf, a Eigen 4x4 float matrix
         void initializeVSLAM(std::string& configString); //* Method to bind an initialized VSLAM framework to this node
+        
+        //* Map visualization helper functions
+        void publishMapPoints();
+        void publishCameraPose(const Sophus::SE3f& Tcw);
+        void publishKeyframePath();
+        void publishTrackingState();
+        void publishTF(const Sophus::SE3f& Tcw);
+        sensor_msgs::msg::PointCloud2 createPointCloud2(const std::vector<ORB_SLAM3::MapPoint*>& mapPoints);
 
 
 };

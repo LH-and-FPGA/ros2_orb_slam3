@@ -133,7 +133,9 @@ source /opt/ros/humble/setup.bash
 colcon build --symlink-install
 ```
 
-## 3. Monocular Example:
+## 3. Usage Examples:
+
+### 3.1 Traditional Python Driver Mode (Default)
 
 Run the builtin example to verify the package is working correctly
 In one terminal [cpp node]
@@ -153,6 +155,59 @@ ros2 run ros2_orb_slam3 mono_driver_node.py --ros-args -p settings_name:=EuRoC -
 ```
 
 Both nodes would perform a handshake and the VSLAM framework would then work as shown in the following video clip
+
+### 3.2 Headless Mode
+
+For environments without X11 display (e.g., servers, Docker containers), you can run the node in headless mode:
+
+```bash
+ros2 run ros2_orb_slam3 mono_node_cpp --ros-args -p headless:=true -p node_name_arg:=mono_slam_cpp
+```
+
+### 3.3 Direct Camera Input Mode
+
+The node can now subscribe directly to camera topics without requiring the Python driver:
+
+```bash
+# Basic camera input
+ros2 run ros2_orb_slam3 mono_node_cpp --ros-args -p use_camera:=true -p camera_topic:=camera/mono -p node_name_arg:=mono_slam_cpp
+
+# Combined with headless mode
+ros2 run ros2_orb_slam3 mono_node_cpp --ros-args -p headless:=true -p use_camera:=true -p camera_topic:=my_camera/image -p node_name_arg:=mono_slam_cpp
+```
+
+## 4. Map Visualization with Foxglove
+
+The package now publishes comprehensive visualization data for real-time 3D map inspection:
+
+### Published Topics:
+- `/map_points` (sensor_msgs/PointCloud2): All 3D map points from the SLAM system
+- `/camera_pose` (geometry_msgs/PoseStamped): Current camera pose in world frame
+- `/keyframe_path` (nav_msgs/Path): Complete trajectory of all keyframes
+- `/tracking_state` (std_msgs/Int32): Current tracking state (0=NO_IMAGES_YET, 1=NOT_INITIALIZED, 2=OK, 3=LOST)
+- `/tf` (tf2_msgs/TFMessage): Transform from "map" to "camera_link" frame
+
+### Foxglove Studio Setup:
+1. Install Foxglove Studio
+2. Connect to your ROS2 system
+3. Add the following panels:
+   - **3D Panel**: Visualize `/map_points` as point cloud and `/keyframe_path` as line
+   - **Plot Panel**: Monitor `/tracking_state` for SLAM health
+   - **Pose Panel**: Display `/camera_pose` for current position
+
+## 5. Configuration Parameters
+
+The node supports the following parameters:
+
+### Core Parameters:
+- `node_name_arg` (string): Node name identifier
+- `voc_file_arg` (string): Path to ORB vocabulary file (auto-detected if not specified)
+- `settings_file_path_arg` (string): Path to settings file directory (auto-detected if not specified)
+
+### New Features:
+- `headless` (bool, default: false): Enable headless mode (no GUI)
+- `use_camera` (bool, default: false): Enable direct camera topic subscription
+- `camera_topic` (string, default: "camera/mono"): Camera image topic name
 
 
 https://github.com/Mechazo11/ros2_orb_slam3/assets/44814419/af9eaa79-da4b-4405-a4d7-e09242ab9660
